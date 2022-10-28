@@ -1,41 +1,76 @@
-import os
+from coc_utilities import coc_api as ca
 
-from dotenv import load_dotenv
+def handle_help() -> str:
+    return """```The commands available with Royal Champion are listed below:    
+  > !help - displays this help message
+  > !war - lists the clan members that have opted into the war and their strikes
+  > !strike [[give|take|reset] <member>|list]
+\t> !strike give <member> - gives a strike to provided member
+\t> !strike take <member> - takes a strike from provided member
+\t> !strike reset <member> - resets member's strikes back to zero
+\t> !strike list - lists all members with strikes and how many they have
+```"""
 
-class Commander():
-    def __init__(self):
-        env_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '.env')
-        load_dotenv(dotenv_path=env_path)
+def handle_war() -> str:
+    war_party = ca.get_members_for_war()
+    strikes = ca.get_strikes()
+    msg = '```War Party:\n'
+    for index, warrior in enumerate(war_party):
+        strike_count = 0
+        if warrior in strikes.keys():
+            strike_count = strikes[warrior]['strikes']
+        msg += f'  {index+1}. {warrior} -> strikes: {strike_count}\n'
+    msg += '```'
 
-    def handle_command(self, message: str) -> str:
-        p_msg = message.lower()
+    return msg
 
-        if p_msg == '!help':
-            return self.handle_help(p_msg)
+def handle_strike(tokens: list) -> str:
+    strikes = {}
 
-        if p_msg == '!war':
-            return self.handle_war(p_msg)
+    if tokens[0].lower() == 'list':
+        strikes = ca.get_strikes()
+        member_count = 0
+        msg = '```Strikes:\n'
+        for member in strikes.keys():
+            if strikes[member]['strikes'] != 0:
+                msg += f"  > {member}: {strikes[member]['strikes']}\n"
+                member_count += 1
+        msg += '```'
 
-        if p_msg == '!promote':
-            return self.handle_promote(p_msg)
-        
-        if p_msg == '!strike':
-            return self.handle_strike(p_msg)
+        if member_count != 0:
+            return msg
+        else:
+            return '`There are currently no members with strikes.`'
 
-        if p_msg == '!update':
-            return self.handle_update(p_msg)
+    member = ' '.join(tokens[1:])
+    if tokens[0].lower() == 'give':
+        strikes = ca.update_strikes(member, True)
+        strike_count = strikes[member]['strikes']
+        if strike_count < 3:
+            return f"`{member} has {strike_count} {'strike' if strike_count == 1 else 'strikes'} now.`"
+        else:
+            return f"`{member} has 3 strikes, action may be needed to remove member from clan.`"
+    elif tokens[0].lower() == 'take':
+        strikes = ca.update_strikes(member, False)
+        strike_count = strikes[member]['strikes']
+        if strike_count > 0:
+            return f"`{member} has {strike_count} {'strike' if strike_count == 1 else 'strikes'} now.`"
+        else:
+            return f"`{member} no longer has any strikes.`"
+    elif tokens[0].lower() == 'reset':
+        strikes = ca.update_strikes(member, False, reset=True)
+        return f"`{member} no longer has any strikes.`"
+    else:
+        return '`!strike subcommand not recognized.`\n\n' + handle_help()
 
-    def handle_help(self, msg: str) -> str:
-        return "`This is a help message that you can modify to show commands and help`"
+def handle_command(message: str) -> str:
+    tokens = message.split()
 
-    def handle_war(self, msg: str) -> str:
-        return "`This will return the list of war participants`"
-
-    def handle_promote(self, msg: str) -> str:
-        return "`This will add a new user to the co-leader role`"
-
-    def handle_strike(self, msg: str) -> str:
-        return "`This will handle giving a strike to a clan mate`"
-
-    def handle_update(self, msg: str) -> str:
-        return "`This will update the clan with any new members`"
+    if tokens[0].lower() == '!help':
+        return handle_help()
+    elif tokens[0].lower() == '!war':
+        return handle_war()
+    elif tokens[0].lower() == '!strike':
+        return handle_strike(tokens[1:])
+    else:
+        return '`Command not recognized.`\n\n' + handle_help()

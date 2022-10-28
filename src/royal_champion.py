@@ -1,15 +1,15 @@
 import discord
 import os
 
-from commands import Commander
+from commands import handle_command
 from dotenv import load_dotenv
 
 env_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), '.env')
 load_dotenv(dotenv_path=env_path)
 
-async def send_message(cmder, message, user_message):
+async def send_message(message, user_message):
     try:
-        response = cmder.handle_command(user_message)
+        response = handle_command(user_message)
         await message.channel.send(response)
     except Exception as e:
         print(e)
@@ -19,7 +19,6 @@ def run_royal_champion():
     intents.members = True
 
     client = discord.Client(intents=intents)
-    cmder = Commander()
 
     @client.event
     async def on_ready():
@@ -36,10 +35,13 @@ def run_royal_champion():
         user_message = str(message.content)
         channel = str(message.channel)
 
-        print(f"{username} said: '{user_message}' on channel: '{channel}'")
-
         if user_message[0] == '!':
-            await send_message(cmder, message, user_message)
+            print(f"{username} said: '{user_message}' on channel: '{channel}'")
+            if str(message.channel) != os.environ['DISCORD_CHANNEL']:
+                response = f"`I can only be used in the channel #{os.environ['DISCORD_CHANNEL']}.`"
+                await message.channel.send(response)
+                return
+            await send_message(message, user_message)
 
     client.run(os.environ['DISCORD_TOKEN'])
 
